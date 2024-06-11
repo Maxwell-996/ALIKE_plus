@@ -1,0 +1,9 @@
+training/log_train/
+training/log_my_train/
+*.png
+__pycache__
+*.npy
+data/
+assets/
+*.mp4
+*.pkl

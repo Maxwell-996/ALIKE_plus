@@ -1,0 +1,37 @@
+agg_mode: cat
+c1: 16
+c2: 32
+c3: 64
+c4: 128
+debug: false
+dim: 128
+eval_gt_th: 3
+log_freq_img: 2000
+lr: 0.0003
+lr_scheduler: !!python/object/apply:functools.partial
+  args:
+  - &id001 !!python/name:training.scheduler.WarmupConstantSchedule ''
+  state: !!python/tuple
+  - *id001
+  - !!python/tuple []
+  - warmup_steps: 500
+  - null
+n_limit: 0
+n_limit_eval: 5000
+norm: 1
+pe: false
+pretrained_model: null
+radius: 2
+sc_th: 0.1
+scores_th: 0
+scores_th_eval: 0.2
+single_head: true
+temp_ds: 0.1
+temp_sp: 0.1
+top_k: 400
+train_gt_th: 5
+w_ds: 5
+w_pk: 0.5
+w_rp: 1
+w_sp: 1
+w_triplet: 0

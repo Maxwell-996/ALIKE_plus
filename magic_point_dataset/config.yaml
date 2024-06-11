@@ -1,0 +1,109 @@
+training: true
+#是否是训练模式
+
+pic_loc: "/home/lizhonghao/ALIKE/magic_point_dataset/pic1"
+#几何图形数据集默认的图片加载路径，在测试时使用
+#在训练模式中，模型会加载最后生成的几何数据集
+
+test_data_lenth: 50
+#验证集读取图片的数目（验证集长度）
+
+is_deeptype : false
+add_gauss: true
+#几何图形数据集的标签点是否添加高斯模糊，在loss使用MSE-loss时有效
+
+
+is_graystyle: false
+#输入模型是否是灰度图（输入tensor在channel维的数目）
+
+data_lenth: 4096
+#生成几何图形数据集的数量
+
+#几何图形数据集的参数
+data:
+    primitives: ['draw_lines',
+            'draw_polygon',
+            'draw_multiple_polygons',
+            'draw_star',
+            'draw_checkerboard',
+            'draw_stripes',
+            'draw_cube']
+    truncate: {draw_ellipses: 0.3, draw_stripes: 0.2, gaussian_noise: 0.1}
+    generation:
+        split_sizes: {"training": 10000, "validation": 500, "test": 200}
+        image_size: [960, 1280]
+        # image_size: [360, 360]
+        random_seed: 0
+        params: {
+            generate_background: {min_kernel_size: 150, 
+                                  max_kernel_size: 500,
+                                  min_rad_ratio: 0.02,
+                                  max_rad_ratio: 0.031},
+            draw_stripes: {transform_params: [0.1, 0.1]},
+            draw_multiple_polygons: {kernel_boundaries: [50, 100]}
+        }
+
+    preprocessing:
+        resize: [240, 320]  # Should be multiples of 8
+        blur_size: 21
+
+    augmentation:
+        photometric:
+            enable: true
+            primitives: [
+                'random_brightness', 'random_contrast', 'additive_speckle_noise',
+                'additive_gaussian_noise', 'additive_shade', 'motion_blur']
+            params:
+                random_brightness: {max_abs_change: 50}
+                random_contrast: {strength_range: [0.3, 1.8]}
+                additive_gaussian_noise: {stddev_range: [0, 15]}
+                additive_speckle_noise: {prob_range: [0, 0.0035]}
+                additive_shade:
+                    transparency_range: [-0.5, 0.8]
+                    kernel_size_range: [50, 100]
+                motion_blur: {max_kernel_size: 7}
+
+        homographic:
+            enable: true
+            params:
+                translation: true
+                rotation: true
+                scaling: true
+                perspective: true
+                scaling_amplitude: 0.2
+                perspective_amplitude_x: 0.2
+                perspective_amplitude_y: 0.2
+                patch_ratio: 0.8
+                max_angle: 1.57
+                allow_artifacts: true
+                translation_overflow: 0.05
+            valid_border_margin: 2
+model:
+    epochs : 50
+    batch_size : 256
+    # model input shape
+    input_shape : [120, 160, 1]
+    nms_size : 4
+    threshold : 0.001 ## threshold of 0.015 only to create the pseudo ground truth and 0.001 to actually train MagicPoint.
+    summary : true
+    mode: "vgg"
+    ckpt_path : null #"/home/shangxu/codes/superpoint/tf2/output/2024_01_24-09_42/20-0.06.h5"
+    # optimizer
+    learning_rate : 0.01
+    weight_decay: 0.0002
+    
+    homography_adaptation:
+        num: 100
+        aggregation: 'sum'
+        filter_counts: 0
+        valid_border_margin: 3
+        homographies:
+            translation: true
+            rotation: true
+            scaling: true
+            perspective: true
+            scaling_amplitude: 0.2
+            perspective_amplitude_x: 0.2
+            perspective_amplitude_y: 0.2
+            allow_artifacts: true
+            patch_ratio: 0.85

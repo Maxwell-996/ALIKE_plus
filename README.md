@@ -1,131 +1,82 @@
-# News
+本项目的主体框架参考自https://github.com/Shiaoming/ALIKE
 
-- The [ALIKED](https://github.com/Shiaoming/ALIKED) is released.
-- The [ALIKE training code](https://github.com/Shiaoming/ALIKE/raw/main/assets/ALIKE_code.zip) is released.
+总体说明
 
-# ALIKE: Accurate and Lightweight Keypoint Detection and Descriptor Extraction
-
-ALIKE applies a differentiable keypoint detection module to detect accurate sub-pixel keypoints. The network can run at 95 frames per second for 640 x 480 images on NVIDIA Titan X (Pascal) GPU and achieve equivalent performance with the state-of-the-arts. ALIKE benefits real-time applications in resource-limited platforms/devices. Technical details are described in [this paper](https://arxiv.org/pdf/2112.02906.pdf).
-
-> ```
-> Xiaoming Zhao, Xingming Wu, Jinyu Miao, Weihai Chen, Peter C. Y. Chen, Zhengguo Li, "ALIKE: Accurate and Lightweight Keypoint
-> Detection and Descriptor Extraction," IEEE Transactions on Multimedia, 2022.
-> ```
-
-![](./assets/alike.png)
+在项目中，本文整合了SuperPoint: Self-Supervised Interest Point Detection and Description中生成的几何图形数据集以及Homographic Adaptation方法，除此之外，本模型的网络结构参考自Breaking of brightness consistency in optical flow with a lightweight CNN network 旨在建立轻量级的特征点提取网络模型。
 
 
-If you use ALIKE in an academic work, please cite:
+
+## 生成几何图形数据集
+
+$\bullet$生成几何图形数据集参考自superpoint，对于生成图片的参数，可以在./magic_point_dataset/config.yaml中调整
+
+$\bullet$由于同时运行具有torch和tensorflow的环境会导致gpu的显存资源占用异常的情况，建议使用离线生成数据集。 由于文件data_state.txt会一直维护最后生成的数据集，通过循环运行该脚本可以实现训练实时生成数据的效果。
+
+
+
+```python
+conda activate make_dataset
+# 命令第一个参数是图片保存的路径 文件夹需预先创建 未创建的文件夹不会自动创建
+
+python ./training/build_dataset.py /home/lizhonghao/ALIKE/magic_point_dataset/pic1
 
 ```
-@article{Zhao2023ALIKED,
-    title = {ALIKED: A Lighter Keypoint and Descriptor Extraction Network via Deformable Transformation},
-    url = {https://arxiv.org/pdf/2304.03608.pdf},
-    doi = {10.1109/TIM.2023.3271000},
-    journal = {IEEE Transactions on Instrumentation & Measurement},
-    author = {Zhao, Xiaoming and Wu, Xingming and Chen, Weihai and Chen, Peter C. Y. and Xu, Qingsong and Li, Zhengguo},
-    year = {2023},
-    volume = {72},
-    pages = {1-16},
-}
+##  使用几何图形数据集对模型进行训练
 
-@article{Zhao2022ALIKE,
-    title = {ALIKE: Accurate and Lightweight Keypoint Detection and Descriptor Extraction},
-    url = {http://arxiv.org/abs/2112.02906},
-    doi = {10.1109/TMM.2022.3155927},
-    journal = {IEEE Transactions on Multimedia},
-    author = {Zhao, Xiaoming and Wu, Xingming and Miao, Jinyu and Chen, Weihai and Chen, Peter C. Y. and Li, Zhengguo},
-    month = march,
-    year = {2022},
-}
+
+
+```python
+conda activate alike
+
+python ./training/my_train.py 
 ```
 
+### 实时查看模型效果
+$\bullet$ 在训练时,除了观察loss之外，可以在"/home/lizhonghao/ALIKE/mgp_valres/"查看模型的效果，该路径可以在“training_wrapper.py”中修改，运行多个训练脚本时需要注意修改本路径，否则文件会覆盖存储。
 
+文件夹下的内容组织形式如下：
 
-## 1. Prerequisites
+epoch{epoch_id}_{pic_id}_ori.png表示原图
 
-The required packages are listed in the `requirements.txt` :
+epoch{epoch_id}_{pic_id}_scoremap.png表示特征点检测的评分图
 
-```shell
-pip install -r requirements.txt
+epoch{epoch_id}_{pic_id}_trans.png表示单应性变换后图片的特征点检测结果
+
+epoch{epoch_id}_{pic_id}_.png无标注图片表示原图的特征点检测结果
+
+### 项目结构
+
+$\bullet$ xxNet.py :模型文件
+
+$\bullet$ model_name.py: model_name对象继承自xxNet对象，交待了神经网络模型的解码过程。
+
+$\bullet$ xx_wrapper.py :TrainWrapper对象继承自神经网络（model_name.py）对象，其交待了神经网络的训练细节，包括每个epoch中训练epoch和验证epoch的流程等，通过调用父类（model_name）中的extract()函数extract_dense_map()函数完成神经网络模型的forward过程。
+
+$\bullet$ my_train.py/my_test.py :调用pytorch_lightning库提供模型生成的接口，pl.Trainer()函数进行训练时的信息记录和保存，模型的checkpoint保存在./training/log_my_train/ 中，文件的名字是训练的开始时间。神经网络的对象从xx_wrapper.py文件中生成，这里可以传入神经网络的规模参数（隐藏层维度等）,在该文件的第一行可以选取运行模型的gpu编号。
+
+$\bullet$ homography_adaptation.py： 文件交待了对score_map的homography_adaptation过程。homography_adaptation过程首先对输入图片进行了单应性变换，通过多次调用神经网络的foward过程获得平均的score表示。
+
+$\bullet$ hpatch.py/gen_mgp_data.py :模型的dataset类，分别对应hpatch数据集和几何图形数据集。
+
+##  hpatch数据集生成伪标签
+
+```python
+conda activate alike
+
+python ./training/my_test.py 
 ```
+$\bullet$ checkpoint的选取在my_test.py的主函数第一行的参数“pretrained_model” ，伪标签的储存位置见test_warpper.py，在文件夹./hpatch_valres/中可以实时查看模型在验证集中的效果,包含特征点位置，scoremap等。
 
 
+##  使用hpatch数据集对模型进行训练
 
-## 2. Models
+$\bullet$ 使用hpatch数据集对模型进行训练（伪标签），需要修改./training/my_train.py最后面的train_loader参数，将train_loader设置为hpatch数据集的loader，然后执行如下所示的命令。
 
-The off-the-shelf weights of four variant ALIKE models are provided in `models/` .
+```python
+conda activate alike
 
-
-
-## 3. Run demo
-
-```shell
-$ python demo.py -h
-usage: demo.py [-h] [--model {alike-t,alike-s,alike-n,alike-l}]
-               [--device DEVICE] [--top_k TOP_K] [--scores_th SCORES_TH]
-               [--n_limit N_LIMIT] [--no_display] [--no_sub_pixel]
-               input
-
-ALike Demo.
-
-positional arguments:
-  input                 Image directory or movie file or "camera0" (for
-                        webcam0).
-
-optional arguments:
-  -h, --help            show this help message and exit
-  --model {alike-t,alike-s,alike-n,alike-l}
-                        The model configuration
-  --device DEVICE       Running device (default: cuda).
-  --top_k TOP_K         Detect top K keypoints. -1 for threshold based mode,
-                        >0 for top K mode. (default: -1)
-  --scores_th SCORES_TH
-                        Detector score threshold (default: 0.2).
-  --n_limit N_LIMIT     Maximum number of keypoints to be detected (default:
-                        5000).
-  --no_display          Do not display images to screen. Useful if running
-                        remotely (default: False).
-  --no_sub_pixel        Do not detect sub-pixel keypoints (default: False).
+python ./training/my_train.py 
 ```
+##  其他辅助脚本
 
-
-
-## 4. Examples
-
-### KITTI example
-```shell
-python demo.py assets/kitti 
-```
-![](./assets/kitti.gif)
-
-### TUM example
-```shell
-python demo.py assets/tum 
-```
-![](./assets/tum.gif)
-
-## 5. Efficiency and performance
-
-| Models | Parameters | GFLOPs(640x480) | MHA@3 on Hpatches | mAA(10°) on [IMW2020-test](https://www.cs.ubc.ca/research/image-matching-challenge/2021/leaderboard) (Stereo) |
-|:---:|:---:|:---:|:-----------------:|:-------------------------------------------------------------------------------------------------------------:|
-| D2-Net(MS) | 7653KB | 889.40 |      38.33%       |                                                    12.27%                                                     |
-| LF-Net(MS) | 2642KB | 24.37 |      57.78%       |                                                    23.44%                                                     |
-| SuperPoint | 1301KB | 26.11 |      70.19%       |                                                    28.97%                                                     |
-| R2D2(MS) | 484KB | 464.55 |      71.48%       |                                                    39.02%                                                     |
-| ASLFeat(MS) | 823KB | 77.58 |      73.52%       |                                                    33.65%                                                     |
-| DISK | 1092KB | 98.97 |      70.56%       |                                                    51.22%                                                     |
-| ALike-N | 318KB | 7.909 |      75.74%       |                                                    47.18%                                                     |
-| ALike-L | 653KB | 19.685 |      76.85%       |                                                    49.58%                                                     |
-
-### Evaluation on Hpatches
-
-- Download [hpatches-sequences-release](https://hpatches.github.io/) and put it into `hseq/hpatches-sequences-release`.
-- Remove the unreliable sequences as D2-Net.
-- Run the following command to evaluate the performance:
-  ```shell  
-  python hseq/eval.py
-  ```
-
-
-For more details, please refer to the [paper](https://arxiv.org/abs/2112.02906).
+$\bullet$ ./make_video.py :处理一系列图片生成视频，便于观察训练中提取的特征点的变化
